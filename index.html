@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>PULP OS / PRIVATE LOCAL COMMAND CENTER</title>
+<style>
+/* ── Reset ── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+button { cursor: pointer; font: inherit; }
+button:focus-visible { outline: 3px solid #ffd15c; outline-offset: 3px; }
+
+/* ── Variables ── */
+:root {
+  --ink: #121015;
+  --orange: #f15a24;
+  --lime: #ffd15c;
+  --cream: #fff4d6;
+  --bg: #160b05;
+}
+
+html { background: var(--bg); }
+
+body {
+  margin: 0;
+  font-family: Arial, Helvetica, sans-serif;
+  background: linear-gradient(180deg, #12110f 0 72px, #2a1207 72px 100%), #160b05;
+  color: var(--ink);
+  min-height: 100vh;
+}
+
+#scanlines {
+  position: fixed; inset: 0; z-index: 50; pointer-events: none;
+  opacity: 0.14;
+  background: repeating-linear-gradient(to bottom, rgba(18,16,21,.22) 0, rgba(18,16,21,.22) 1px, transparent 1px, transparent 5px);
+  mix-blend-mode: multiply;
+}
+#pixeldust {
+  position: fixed; inset: 0; z-index: 49; pointer-events: none;
+  opacity: 0.18;
+  background-image: radial-gradient(rgba(255,244,214,.28) 1px, transparent 1px), radial-gradient(rgba(241,90,36,.18) 1px, transparent 1px);
+  background-position: 0 0, 8px 10px;
+  background-size: 18px 18px, 22px 22px;
+}
+
+#app {
+  max-width: 1540px; margin: 0 auto;
+  display: flex; flex-direction: column; gap: 1rem;
+  padding: 0.75rem 1rem 2rem; min-height: 100vh;
+}
+
+/* Top bar */
+#topbar {
+  position: relative;
+  border: 4px solid var(--ink); background: var(--ink); color: #fff;
+  box-shadow: 5px 5px 0 var(--ink);
+}
+#topbar::before {
+  content: "PULP OS";
+  position: absolute; left: 50%; top: -1.25rem; transform: translateX(-50%);
+  color: rgba(255,244,214,.07);
+  font-family: ui-monospace, monospace; font-size: clamp(3rem,12vw,9rem);
+  font-weight: 900; line-height: 1; pointer-events: none; white-space: nowrap;
+}
+#topbar-inner {
+  display: grid; grid-template-columns: auto 1fr auto;
+  align-items: center; gap: 0.75rem; padding: 0.75rem 1rem;
+  font-family: ui-monospace, monospace; font-weight: 900;
+  font-size: clamp(0.85rem,2vw,1.25rem); text-transform: uppercase;
+}
+.topbar-dots { display: flex; gap: 0.5rem; }
+.topbar-dot { width: 1rem; height: 1rem; border-radius: 50%; border: 2px solid #fff; }
+#topbar-title { text-align: center; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Sub-header */
+#subheader { border: 4px solid var(--ink); background: var(--cream); box-shadow: 5px 5px 0 var(--ink); }
+#subheader-bar {
+  display: flex; align-items: center; justify-content: space-between;
+  background: var(--orange); color: #fff;
+  padding: 0.5rem 1rem; border-bottom: 4px solid var(--ink);
+  font-family: ui-monospace, monospace; font-weight: 900; font-size: 1.25rem; text-transform: uppercase;
+}
+#marquee-wrap { overflow: hidden; background: var(--ink); padding: 0.5rem 0; }
+#marquee-track {
+  display: inline-block; white-space: nowrap; min-width: 200%;
+  font-family: ui-monospace, monospace; font-weight: 900; font-size: 0.85rem;
+  text-transform: uppercase; letter-spacing: .05em; color: var(--lime);
+  animation: long-marquee 18s linear infinite;
+}
+
+/* 3-col grid */
+#main-grid { display: grid; gap: 1.25rem; flex: 1; }
+@media (min-width: 1024px) {
+  #main-grid { grid-template-columns: 200px minmax(540px,1fr) 260px; }
+  #col-machine { order: 2; } #col-sidebar { order: 1; } #col-tray { order: 3; }
+}
+
+/* Sidebar */
+#col-sidebar { display: flex; flex-direction: column; gap: 1rem; }
+.panel { border: 4px solid var(--ink); box-shadow: 5px 5px 0 var(--ink); }
+.panel-header { padding: 0.4rem 0.75rem; font-family: ui-monospace, monospace; font-weight: 900; font-size: 0.85rem; text-transform: uppercase; color: #fff; background: var(--ink); }
+.about-panel { background: var(--cream); }
+.about-panel .panel-body { padding: 0.75rem; font-size: 0.9rem; font-weight: 700; line-height: 1.5; }
+.drops-panel { background: #fff; }
+.drops-panel .panel-header { display: flex; justify-content: space-between; align-items: center; background: var(--orange); }
+#drop-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 0.5rem; padding: 0.75rem; }
+.drop-thumb { border: 2px solid var(--ink); background: #f5f5f5; padding: 0.25rem; text-align: center; }
+.drop-thumb-swatch { width: 2rem; height: 2rem; border: 1px solid var(--ink); margin: 0 auto 0.25rem; }
+.drop-thumb p { font-family: ui-monospace, monospace; font-size: 9px; font-weight: 900; text-transform: uppercase; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.status-row { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; }
+.status-box { border: 4px solid var(--ink); padding: 0.75rem; box-shadow: 5px 5px 0 var(--ink); }
+.status-box.orange-box { background: var(--orange); color: #fff; }
+.status-box.dark-box { background: var(--ink); color: #fff; }
+.status-label { font-family: ui-monospace, monospace; font-size: 10px; font-weight: 900; text-transform: uppercase; }
+.status-value { font-family: ui-monospace, monospace; font-size: 1.1rem; font-weight: 900; text-transform: uppercase; margin-top: 0.25rem; }
+.dark-box .status-value { font-size: 0.875rem; }
+
+/* Machine column */
+#col-machine {
+  position: relative; display: flex; align-items: flex-start; justify-content: center;
+  padding-top: 3rem; padding-bottom: 0.5rem;
+}
+#machine-label-top {
+  position: absolute; left: 0.5rem; top: 0; z-index: 10;
+  border: 4px solid var(--ink); background: #fff;
+  padding: 0.25rem 0.75rem; font-family: ui-monospace, monospace; font-size: 12px; font-weight: 900; text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+#machine-label-bot {
+  position: absolute; right: 0; bottom: 0.5rem; z-index: 10;
+  border: 4px solid var(--ink); background: var(--orange); color: #fff;
+  padding: 0.25rem 0.75rem; font-family: ui-monospace, monospace; font-size: 12px; font-weight: 900; text-transform: uppercase;
+  box-shadow: 3px 3px 0 var(--ink);
+}
+#machine-wrap { position: relative; z-index: 5; width: 100%; max-width: 700px; }
+
+.machine-shell {
+  position: relative; border: 7px solid var(--ink);
+  border-radius: 10px 10px 4px 4px; padding: 1rem;
+  background:
+    linear-gradient(90deg, rgba(255,255,255,.28), transparent 12% 86%, rgba(18,16,21,.24)),
+    repeating-linear-gradient(90deg, rgba(255,255,255,.08) 0 2px, rgba(18,16,21,.06) 2px 5px),
+    linear-gradient(180deg, #f15a24 0%, #c74418 56%, #822813 100%);
+  box-shadow: 12px 12px 0 #121015, 22px 28px 0 rgba(18,16,21,.22), inset 10px 0 0 rgba(255,255,255,.12), inset -14px 0 0 rgba(0,0,0,.18);
+}
+.machine-shell::before { content:""; position:absolute; inset:8px; pointer-events:none; border:2px dotted rgba(18,16,21,.45); }
+
+.machine-header {
+  display: grid; gap: 0.75rem;
+  border: 4px solid var(--ink); background: var(--ink); padding: 0.75rem;
+  box-shadow: inset 0 3px 0 rgba(255,255,255,.18), inset 0 -5px 0 rgba(0,0,0,.35);
+}
+@media (min-width: 640px) { .machine-header { grid-template-columns: 220px 1fr 70px; align-items: center; } }
+.brand-plate {
+  display: flex; align-items: center; justify-content: center;
+  min-height: 6rem; border: 2px solid #6b6250; background: #f8f3e8;
+  padding: 0.5rem; box-shadow: inset 0 0 18px rgba(0,0,0,.15);
+}
+.brand-plate-text { font-family: ui-monospace, monospace; font-size: 2.5rem; font-weight: 900; color: var(--orange); letter-spacing: .1em; font-style: italic; }
+.machine-title { font-family: ui-monospace, monospace; font-size: clamp(1.4rem,4vw,2.25rem); font-weight: 900; text-transform: uppercase; color: #fff; line-height: 1; }
+.machine-subtitle { margin-top: 0.25rem; font-family: ui-monospace, monospace; font-size: 10px; font-weight: 900; text-transform: uppercase; color: var(--lime); }
+.machine-stripe { margin-top: 0.5rem; height: 0.5rem; border: 1px solid #5f5a63; background: repeating-linear-gradient(90deg, #e86d22 0 18px, #121015 18px 24px, #b9ff39 24px 30px); }
+.machine-leds { display: grid; grid-template-columns: repeat(3,1fr); gap: 0.25rem; border: 2px solid #5f5a63; background: #242128; border-radius: 2px; padding: 0.25rem; }
+.machine-led { height: 1rem; border: 1px solid rgba(255,255,255,.6); animation: blink .72s steps(1,end) infinite; }
+
+.machine-body { margin-top: 1rem; display: grid; grid-template-columns: 1fr 104px; gap: 0.75rem; }
+@media (min-width: 640px) { .machine-body { grid-template-columns: 1fr 132px; } }
+
+.machine-glass {
+  position: relative; overflow: hidden;
+  border: 4px solid var(--ink); background: rgba(24,36,45,.9); padding: 0.75rem;
+  box-shadow: inset 0 0 44px rgba(255,244,214,.24), inset 8px 0 0 rgba(255,255,255,.12), inset -10px 0 0 rgba(0,0,0,.28);
+}
+.machine-glass::before {
+  content:""; position:absolute; inset-x:0; top:0; height:1.25rem;
+  border-bottom: 2px solid var(--ink);
+  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.02));
+}
+.glass-glare {
+  position:absolute; inset:0; pointer-events:none;
+  background:
+    linear-gradient(112deg, transparent 0 24%, rgba(255,255,255,.34) 25% 30%, transparent 31% 58%, rgba(255,255,255,.18) 59% 62%, transparent 63% 100%),
+    repeating-linear-gradient(0deg, rgba(255,255,255,.05) 0 2px, transparent 2px 8px);
+}
+.glass-grid { position: relative; margin-top: 0.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem; }
+@media (min-width: 640px) { .glass-grid { grid-template-columns: repeat(3,1fr); } }
+.glass-slot { position: relative; margin-bottom: 1rem; }
+.slot-shelf { position:absolute; bottom:-0.75rem; left:0; right:0; height:1rem; border:2px solid var(--ink); background:#b7a98d; }
+.slot-spiral { position:absolute; bottom:-0.25rem; left:1rem; right:1rem; height:0.75rem; border-radius:50%; border:2px solid var(--ink); background:repeating-linear-gradient(90deg,#121015 0 4px,#d8d0bb 4px 9px); }
+.shirt-card {
+  position:relative; display:flex; flex-direction:column; align-items:center; justify-content:space-between;
+  min-height:9rem; border:2px solid var(--ink); background:rgba(255,255,255,.9);
+  padding:0.5rem; text-align:center; box-shadow:3px 3px 0 var(--ink); transition:transform .15s;
+}
+.shirt-card:hover { transform: translateY(-3px); }
+.shirt-slot-tag { position:absolute; left:0.25rem; top:0.25rem; background:var(--ink); color:var(--lime); font-family:ui-monospace,monospace; font-size:9px; text-transform:uppercase; padding:0 0.25rem; }
+.shirt-price-tag { position:absolute; right:0.25rem; top:0.25rem; background:#e1accf; color:var(--ink); font-family:ui-monospace,monospace; font-size:9px; font-weight:900; text-transform:uppercase; padding:0 0.25rem; }
+.shirt-name-row { width:100%; border-top:2px dotted var(--ink); padding-top:0.25rem; }
+.shirt-name { font-family:ui-monospace,monospace; font-size:10px; font-weight:900; text-transform:uppercase; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.shirt-kind { font-family:ui-monospace,monospace; font-size:8px; font-weight:900; text-transform:uppercase; color:rgba(18,16,21,.6); }
+
+.control-panel {
+  display:flex; flex-direction:column; gap:0.75rem;
+  border:4px solid var(--ink); background:#fff4d6; padding:0.5rem;
+  box-shadow: inset 5px 0 0 rgba(255,255,255,.25), inset -6px 0 0 rgba(0,0,0,.16);
+}
+.panel-screen {
+  border:2px solid var(--ink); background:#000; padding:0.5rem;
+  text-align:center; font-family:ui-monospace,monospace; font-size:10px; text-transform:uppercase; color:var(--lime);
+  box-shadow: inset 0 0 8px rgba(185,255,57,.45); overflow:hidden;
+}
+.panel-screen span { display:inline-block; white-space:nowrap; animation:marquee 1.2s linear infinite alternate; }
+.vend-btn {
+  aspect-ratio:1; display:flex; align-items:center; justify-content:center;
+  border:4px solid var(--ink); border-radius:50%;
+  background:var(--orange); color:#fff; box-shadow:3px 3px 0 var(--ink);
+  transition:transform .15s, background .15s;
+}
+.vend-btn:hover { background:var(--ink); transform:translateY(-2px); }
+.vend-btn:disabled { opacity:.7; cursor:wait; }
+.vend-btn svg { width:2.5rem; height:2.5rem; fill:currentColor; }
+.key-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:0.25rem; }
+.key-btn { border:2px solid var(--ink); background:#fff; padding:0.25rem 0; font-family:ui-monospace,monospace; font-size:10px; font-weight:900; transition:background .1s, color .1s; }
+.key-btn:hover { background:var(--orange); color:#fff; }
+.key-btn:disabled { cursor:wait; }
+.coin-slot-btn {
+  border:2px solid var(--ink); background:var(--ink); color:#fff;
+  padding:0.75rem 0.5rem; text-align:center;
+  font-family:ui-monospace,monospace; font-size:12px; font-weight:900; text-transform:uppercase;
+  transition:background .1s;
+}
+.coin-slot-btn:hover { background:var(--orange); }
+.coin-slot-btn:disabled { cursor:wait; }
+.coin-slot-btn svg { display:block; margin:0 auto 0.25rem; width:1.25rem; height:1.25rem; }
+.coin-return-box { border:2px solid var(--ink); background:#817969; padding:0.5rem; }
+.coin-return-slit { height:2rem; border:2px solid var(--ink); background:linear-gradient(180deg,#111,#333 45%,#080808); margin-bottom:0.5rem; }
+.coin-return-tray { height:2.5rem; border:2px solid var(--ink); background:#000; padding:0.25rem; }
+.coin-return-inner { height:100%; border:1px solid #e1accf; background:repeating-linear-gradient(90deg,#111 0 5px,#2b2230 5px 10px); }
+.coin-return-label { text-align:center; font-family:ui-monospace,monospace; font-size:8px; font-weight:900; text-transform:uppercase; margin-top:0.25rem; }
+
+.machine-tray { margin-top:1rem; border:4px solid var(--ink); background:#19161c; padding:0.75rem; box-shadow:inset 0 8px 0 rgba(255,255,255,.08); }
+.tray-window { position:relative; height:8rem; overflow:hidden; border:2px solid var(--orange); background:#000; }
+.tray-shelf { position:absolute; inset-x:0.75rem; bottom:0.5rem; height:2.5rem; border:2px solid var(--orange); background:linear-gradient(180deg,#3a1607,#171217); }
+.tray-glow { position:absolute; inset-x:1.5rem; bottom:3rem; height:0.75rem; border-radius:50%; background:#000; box-shadow:0 0 18px rgba(225,172,207,.85); }
+.tray-drop-item { position:absolute; left:50%; }
+
+/* Output tray */
+.output-panel { background:var(--cream); }
+.output-panel-header { display:flex; align-items:center; justify-content:space-between; border-bottom:4px solid var(--ink); background:var(--orange); color:#fff; padding:0.5rem 0.75rem; }
+.output-panel-header h2 { font-family:ui-monospace,monospace; font-size:1.1rem; font-weight:900; text-transform:uppercase; }
+.blink { animation:blink .72s steps(1,end) infinite; background:var(--ink); color:#fff; padding:0.15rem 0.5rem; font-family:ui-monospace,monospace; font-size:10px; text-transform:uppercase; }
+.output-body { padding:1rem; }
+.output-empty { display:flex; flex-direction:column; align-items:center; justify-content:center; min-height:26rem; border:4px dashed var(--ink); background:#fff; padding:1.25rem; text-align:center; }
+.output-empty-badge { border:2px solid var(--ink); background:#000; color:var(--lime); padding:0.5rem 0.75rem; font-family:ui-monospace,monospace; font-size:12px; text-transform:uppercase; margin-bottom:1rem; }
+.output-empty p { font-family:ui-monospace,monospace; font-size:14px; font-weight:900; text-transform:uppercase; line-height:1.6; max-width:18rem; }
+.output-item { display:flex; flex-direction:column; align-items:center; text-align:center; }
+.output-item-graphic { position:relative; margin-bottom:0.5rem; }
+.output-item-graphic.popping { animation:pop-in .38s cubic-bezier(.18,.89,.32,1.28) both; }
+.rarity-badge { position:absolute; right:-0.5rem; top:2rem; transform:rotate(12deg); border:2px solid var(--ink); background:var(--orange); color:#fff; padding:0.25rem 0.5rem; font-family:ui-monospace,monospace; font-size:10px; font-weight:900; text-transform:uppercase; box-shadow:2px 2px 0 var(--ink); }
+.output-name { font-family:ui-monospace,monospace; font-size:1.5rem; font-weight:900; text-transform:uppercase; line-height:1.2; }
+.output-desc { margin-top:0.5rem; font-size:14px; font-weight:700; line-height:1.5; color:rgba(18,16,21,.8); }
+.output-actions { display:grid; grid-template-columns:1fr 1fr; gap:0.5rem; margin-top:1rem; width:100%; }
+.btn-dark { display:flex; align-items:center; justify-content:center; gap:0.5rem; border:2px solid var(--ink); background:var(--ink); color:#fff; padding:0.75rem; font-family:ui-monospace,monospace; font-size:12px; font-weight:900; text-transform:uppercase; transition:background .1s; }
+.btn-dark:hover { background:var(--orange); }
+.btn-orange { display:flex; align-items:center; justify-content:center; gap:0.5rem; border:2px solid var(--ink); background:var(--orange); color:#fff; padding:0.75rem; font-family:ui-monospace,monospace; font-size:12px; font-weight:900; text-transform:uppercase; transition:background .1s; }
+.btn-orange:hover { background:var(--ink); }
+.btn-orange:disabled { cursor:wait; }
+.btn-orange svg, .btn-dark svg { width:1rem; height:1rem; }
+
+/* Radio */
+#radio { position:relative; z-index:5; padding:0.8rem; background:var(--orange); color:#fff; border:4px solid var(--ink); box-shadow:8px 8px 0 #000; }
+#radio-inner {
+  display:grid; grid-template-columns:auto minmax(0,1fr) auto auto;
+  align-items:center; gap:1rem; padding:0.75rem 1rem;
+  border:3px solid var(--ink);
+  background:linear-gradient(90deg, rgba(241,90,36,.18), transparent 28%), #000;
+}
+#radio-art {
+  display:grid; place-items:center; width:56px; height:56px;
+  border:1px solid #303338; color:var(--orange);
+  background:repeating-linear-gradient(0deg, rgba(255,255,255,.06) 0 2px, transparent 2px 5px), #111;
+}
+#radio-art.is-playing { color:#fff; border-color:var(--orange); box-shadow:0 0 12px var(--orange); animation:illroots-live-pulse 2s ease-in-out infinite; }
+#radio-art svg { width:1.75rem; height:1.75rem; }
+#radio-meta { min-width:0; }
+#radio-station { color:#fff; font-family:ui-monospace,monospace; font-size:1.15rem; font-weight:900; letter-spacing:.08em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#radio-status { color:#999; font-family:ui-monospace,monospace; font-size:.82rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase; white-space:nowrap; }
+#radio-tagline { margin-top:.15rem; color:var(--orange); font-family:ui-monospace,monospace; font-size:.72rem; font-weight:900; letter-spacing:.14em; text-transform:uppercase; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+#radio-btn {
+  display:inline-flex; align-items:center; gap:.45rem;
+  padding:.7rem 1rem; border:1px solid var(--orange); color:#fff;
+  font-family:ui-monospace,monospace; font-size:.78rem; font-weight:900; letter-spacing:.12em; text-transform:uppercase;
+  transition:background .15s, transform .1s; cursor:pointer;
+}
+#radio-btn.playing { background:var(--orange); box-shadow:0 0 12px var(--orange); animation:illroots-live-pulse 2s ease-in-out infinite; }
+#radio-btn.paused { color:var(--orange); background:transparent; box-shadow:none; }
+#radio-btn:hover { background:var(--ink); color:#fff; }
+#radio-dot { width:.55rem; height:.55rem; border-radius:50%; background:#fff; animation:illroots-dot-pulse 1.4s ease-in-out infinite; }
+#radio-247 { color:#fff; font-family:ui-monospace,monospace; font-size:1.05rem; font-weight:900; letter-spacing:.08em; }
+#radio-btn svg { width:.75rem; height:.75rem; fill:currentColor; }
+@media (max-width:720px) {
+  #radio-inner { grid-template-columns:auto minmax(0,1fr) auto; gap:.6rem; padding:.5rem .6rem; }
+  #radio-247, #radio-tagline { display:none; }
+}
+
+/* Guestbook */
+#guestbook { border:4px solid var(--ink); background:var(--cream); box-shadow:5px 5px 0 var(--ink); }
+#guestbook-header { display:flex; flex-wrap:wrap; align-items:center; justify-content:space-between; gap:0.5rem; border-bottom:4px solid var(--ink); background:var(--ink); color:#fff; padding:0.5rem 0.75rem; }
+#guestbook-header h2 { font-family:ui-monospace,monospace; font-size:1.1rem; font-weight:900; text-transform:uppercase; }
+.local-badge { background:var(--orange); color:#fff; padding:.15rem .5rem; font-family:ui-monospace,monospace; font-size:10px; text-transform:uppercase; }
+#guestbook-grid { display:grid; gap:0.5rem; padding:1rem; }
+@media (min-width:640px) { #guestbook-grid { grid-template-columns:1fr 1fr; } }
+@media (min-width:1024px) { #guestbook-grid { grid-template-columns:repeat(3,1fr); } }
+.guest-entry { border:2px solid var(--ink); background:#fff; padding:0.75rem; }
+.guest-name { font-family:ui-monospace,monospace; font-size:12px; font-weight:900; text-transform:uppercase; color:var(--orange); margin-bottom:0.25rem; }
+.guest-msg { font-size:14px; font-weight:700; line-height:1.4; }
+
+/* Animations */
+@keyframes blink { 0%,48%{opacity:1} 49%,100%{opacity:.18} }
+@keyframes machine-shake { 0%,100%{transform:translate(0,0) rotate(0)} 12%{transform:translate(-4px,2px) rotate(-1deg)} 24%{transform:translate(5px,-2px) rotate(1deg)} 36%{transform:translate(-3px,-1px) rotate(-.6deg)} 48%{transform:translate(3px,2px) rotate(.8deg)} 60%{transform:translate(-2px,1px) rotate(-.4deg)} }
+@keyframes shirt-drop { 0%{opacity:0;transform:translate(-50%,-130%) rotate(-9deg) scale(.72)} 62%{opacity:1;transform:translate(-50%,30px) rotate(8deg) scale(.72)} 78%{transform:translate(-50%,18px) rotate(-4deg) scale(.72)} 100%{opacity:1;transform:translate(-50%,30px) rotate(0) scale(.72)} }
+@keyframes pop-in { 0%{transform:scale(.85) rotate(-3deg)} 100%{transform:scale(1) rotate(0)} }
+@keyframes long-marquee { from{transform:translateX(0)} to{transform:translateX(-50%)} }
+@keyframes marquee { from{transform:translateX(34%)} to{transform:translateX(-34%)} }
+@keyframes illroots-live-pulse { 0%,100%{box-shadow:0 0 8px #c74418} 50%{box-shadow:0 0 16px var(--orange)} }
+@keyframes illroots-dot-pulse { 0%,100%{opacity:1;transform:scale(1)} 50%{opacity:.55;transform:scale(.75)} }
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@media (prefers-reduced-motion:reduce) { *,*::before,*::after { animation-duration:.01ms!important; animation-iteration-count:1!important; } }
+</style>
+</head>
+<body>
+<div id="scanlines"></div>
+<div id="pixeldust"></div>
+<div id="app">
+
+  <header id="topbar">
+    <div id="topbar-inner">
+      <div class="topbar-dots">
+        <div class="topbar-dot" style="background:var(--orange)"></div>
+        <div class="topbar-dot" style="background:var(--lime)"></div>
+        <div class="topbar-dot" style="background:#74d05a"></div>
+      </div>
+      <div id="topbar-title">PULP OS / PRIVATE LOCAL COMMAND CENTER</div>
+      <div id="topbar-time">--:-- --</div>
+    </div>
+  </header>
+
+  <div id="subheader">
+    <div id="subheader-bar"><span>PULP://VEND</span><span>LOCAL ONLY</span></div>
+    <div id="marquee-wrap">
+      <span id="marquee-track">PULP OS &nbsp;/&nbsp; PRIVATE LOCAL COMMAND CENTER &nbsp;/&nbsp; ORANGE MACHINE ONLINE &nbsp;/&nbsp; MERCH DROP PROTOTYPE &nbsp;/&nbsp; LOCAL ONLY &nbsp;/&nbsp; PULP OS &nbsp;/&nbsp; PRIVATE LOCAL COMMAND CENTER &nbsp;/&nbsp; ORANGE MACHINE ONLINE &nbsp;/&nbsp; MERCH DROP PROTOTYPE &nbsp;/&nbsp; LOCAL ONLY &nbsp;</span>
+    </div>
+  </div>
+
+  <div id="main-grid">
+
+    <div id="col-sidebar">
+      <section class="panel about-panel">
+        <div class="panel-header">PULP://ABOUT</div>
+        <div class="panel-body">Private desktop vending lab for brand world, merch drops, assets, notes, and recordings. No server. No public link. Just the machine.</div>
+      </section>
+      <section class="panel drops-panel">
+        <div class="panel-header"><span>Drop Index</span><span class="blink">LOCAL</span></div>
+        <div id="drop-grid"></div>
+      </section>
+      <div class="status-row">
+        <div class="status-box orange-box"><div class="status-label">Vault:</div><div class="status-value">EJECTED</div></div>
+        <div class="status-box dark-box"><div class="status-label">Chrome:</div><div class="status-value">CLEAN</div></div>
+      </div>
+    </div>
+
+    <section id="col-machine">
+      <div id="machine-label-top">CLICK 4 MERCH</div>
+      <div id="machine-label-bot">GATEWAY: LOCAL</div>
+      <div id="machine-wrap">
+        <div class="machine-shell" id="machine-shell">
+          <div style="position:absolute;bottom:-1.25rem;left:2rem;width:4rem;height:2rem;border:4px solid var(--ink);background:#39363d;"></div>
+          <div style="position:absolute;bottom:-1.25rem;right:2rem;width:4rem;height:2rem;border:4px solid var(--ink);background:#39363d;"></div>
+          <div class="machine-header">
+            <div class="brand-plate"><span class="brand-plate-text">pulp</span></div>
+            <div>
+              <div class="machine-title">Vending Machine</div>
+              <div class="machine-subtitle">model pv-02 / weird goods only</div>
+              <div class="machine-stripe"></div>
+            </div>
+            <div class="machine-leds">
+              <div class="machine-led" style="background:var(--orange)"></div>
+              <div class="machine-led" style="background:var(--lime);animation-delay:.24s"></div>
+              <div class="machine-led" style="background:#fff;animation-delay:.48s"></div>
+            </div>
+          </div>
+          <div class="machine-body">
+            <div class="machine-glass">
+              <div class="glass-glare"></div>
+              <div class="glass-grid" id="glass-grid"></div>
+            </div>
+            <div class="control-panel">
+              <div class="panel-screen"><span>insert vibe</span></div>
+              <button class="vend-btn" id="vend-zap" onclick="vend()">
+                <svg viewBox="0 0 24 24"><path d="M13 2L3 14h9l-1 8 10-12h-9l1-8z"/></svg>
+              </button>
+              <div class="key-grid" id="key-grid"></div>
+              <button class="coin-slot-btn" id="coin-slot-btn" onclick="vend()">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 6v6l4 2"/></svg>
+                COIN SLOT
+              </button>
+              <div class="coin-return-box">
+                <div class="coin-return-slit"></div>
+                <div class="coin-return-tray"><div class="coin-return-inner"></div></div>
+                <div class="coin-return-label">COIN RETURN</div>
+              </div>
+            </div>
+          </div>
+          <div class="machine-tray">
+            <div class="tray-window">
+              <div class="tray-shelf"></div>
+              <div class="tray-glow"></div>
+              <div class="tray-drop-item" id="tray-drop"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div id="col-tray">
+      <aside class="panel output-panel">
+        <div class="output-panel-header">
+          <h2>Output Tray</h2>
+          <span class="blink">local</span>
+        </div>
+        <div class="output-body" id="output-body">
+          <div class="output-empty">
+            <div class="output-empty-badge">TRAY EMPTY / DESTINY PENDING</div>
+            <p>Press the coin slot and let the machine choose a pulp-branded object from the weird little glass box.</p>
+          </div>
+        </div>
+      </aside>
+    </div>
+
+  </div>
+
+  <aside id="radio">
+    <audio id="radio-audio" src="https://station.illroots.com/listen/illfm_0.1/radio.mp3" preload="none"></audio>
+    <div id="radio-inner">
+      <div id="radio-art">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="width:1.75rem;height:1.75rem">
+          <path d="M4.9 16.1C1 12.2 1 5.8 4.9 1.9"/><path d="M7.8 4.7a6.14 6.14 0 0 0-.8 7.5"/><circle cx="12" cy="12" r="2"/><line x1="12" y1="9" x2="12" y2="2"/>
+        </svg>
+      </div>
+      <div id="radio-meta">
+        <div id="radio-station">pulp-sm radio</div>
+        <div id="radio-status">24/7 RADIO</div>
+        <div id="radio-tagline">ILLFM 24/7 live radio</div>
+      </div>
+      <button id="radio-btn" class="paused" onclick="toggleRadio()">
+        <span id="radio-dot"></span>
+        <svg id="radio-play" viewBox="0 0 24 24" style="width:.75rem;height:.75rem;fill:currentColor"><path d="M5 3l14 9-14 9V3z"/></svg>
+        <svg id="radio-pause" viewBox="0 0 24 24" style="width:.75rem;height:.75rem;fill:currentColor;display:none"><path d="M6 4h4v16H6zM14 4h4v16h-4z"/></svg>
+        <span id="radio-label">Play Music</span>
+      </button>
+      <div id="radio-247">24/7</div>
+    </div>
+  </aside>
+
+  <section id="guestbook">
+    <div id="guestbook-header">
+      <h2>Command Log</h2>
+      <span class="local-badge">local notes</span>
+    </div>
+    <div id="guestbook-grid"></div>
+  </section>
+
+</div>
+
+<script>
+const shirts = [
+  {id:"lavender-logo",name:"Lavender Counterfeit",kind:"tee",color:"#a996c9",ink:"#ffffff",accent:"#e1accf",rarity:"sticky common",description:"Soft purple bootleg energy. Smells like a mall fountain and a burned CD.",price:"$22",slot:"A1",motif:"script"},
+  {id:"blue-mass",name:"Blue Shapeless Mass",kind:"tee",color:"#bff0ff",ink:"#e1accf",accent:"#ffffff",rarity:"screen saver rare",description:"For when your torso becomes a loading animation with feelings.",price:"$24",slot:"A2",motif:"mass"},
+  {id:"static-sticker-pack",name:"Static Pulp Sticker Pack",kind:"sticker-pack",color:"#171419",ink:"#ffffff",accent:"#b9ff39",rarity:"midnight snack",description:"Five fake-sticky rectangles for laptops, lockers, and emotional support water bottles.",price:"$6",slot:"A3",motif:"stack"},
+  {id:"pink-hum-zine",name:"Vending Machine Hum",kind:"zine",color:"#e1accf",ink:"#121015",accent:"#bff0ff",rarity:"diet glitch",description:"A tiny folded zine about appliance worship, bad lighting, and excellent fonts.",price:"$8",slot:"B1",motif:"ticker"},
+  {id:"lime-tote",name:"Soda Floor Ritual Tote",kind:"tote",color:"#b9ff39",ink:"#121015",accent:"#ff8f1f",rarity:"cursed fresh",description:"Carries snacks, zines, and one suspiciously warm convenience-store soda.",price:"$18",slot:"B2",motif:"drip"},
+  {id:"white-portal-cap",name:"Profile Page Portal Cap",kind:"cap",color:"#f8f8f2",ink:"#e1accf",accent:"#a996c9",rarity:"top 8 deluxe",description:"A clean cap with a suspiciously haunted front graphic and mall-kiosk confidence.",price:"$20",slot:"B3",motif:"portal"},
+  {id:"receipt-cassette",name:"Receipt Tape Cassette",kind:"cassette",color:"#ddd7c8",ink:"#121015",accent:"#e1accf",rarity:"bonus hum",description:"A pretend mixtape of vending drones, printer jams, and one lonely coin return.",price:"$10",slot:"C1",motif:"receipt"},
+  {id:"barcode-mini-zine",name:"Barcode Oracle Mini Zine",kind:"zine",color:"#f8f8f2",ink:"#121015",accent:"#bff0ff",rarity:"paper prophecy",description:"Twelve pages of pulp symbols that definitely should not scan, but somehow do.",price:"$7",slot:"C2",motif:"barcode"}
+];
+const seeds=[{name:"xXsnackangelXx",message:"this machine knows too much about my closet"},{name:"dialup_dream",message:"added u to my top 8. please vend responsibly"},{name:"sodaFloor99",message:"the lavender one just called me by my screen name"},{name:"jpeg_wizard",message:"10/10 hum. very crunchy buttons."},{name:"mass_shapeless",message:"back print bigger. no notes."}];
+const replies=["machine dispensed a branded feeling","coin accepted. identity slightly altered.","object landed with dial-up confidence","the tray coughed up another pulp relic","new pocket universe downloaded"];
+
+let selected=null,dropping=false,comments=[...seeds],lastIdx=null;
+
+function pm(s,x=100,y=105,sz=30){return`<text x="${x}" y="${y}" text-anchor="middle" fill="${s.ink}" font-family="Arial,sans-serif" font-size="${sz}" font-style="italic" font-weight="900">pulp</text>`}
+function motif(s){const{motif:m,ink,accent}=s;
+  if(m==='mass')return`<g><circle cx="100" cy="100" r="34" fill="none" stroke="${ink}" stroke-dasharray="4 8" stroke-width="5"/><text x="100" y="61" text-anchor="middle" font-size="8" fill="${ink}" font-family="monospace">shapeless mass</text><path d="M77 78h18v44H77zM105 78h18v44h-18z" fill="none" stroke="${ink}" stroke-width="4"/><path d="M79 87c19 12 24 12 43 0M79 113c19-12 24-12 43 0" stroke="${ink}" stroke-width="4"/></g>`;
+  if(m==='stack')return`<g>${[0,1,2,3,4].map(i=>`<rect x="${52+i*20}" y="${66+(i%2)*15}" width="54" height="34" rx="5" fill="${accent}" stroke="${ink}" stroke-width="3"/>`).join('')}${pm(s,100,119,24)}</g>`;
+  if(m==='drip')return`<g>${pm(s,100,96,32)}<path d="M70 110c10 12 14 12 21 0 8 18 20 18 27 0 6 11 15 11 23 0" fill="none" stroke="${accent}" stroke-width="7"/><path d="M82 121v18M114 121v24M139 118v15" stroke="${accent}" stroke-linecap="round" stroke-width="6"/></g>`;
+  if(m==='ticker')return`<g font-family="monospace" font-weight="800" fill="${ink}"><rect x="58" y="72" width="84" height="48" rx="3" fill="${accent}" stroke="${ink}" stroke-width="3"/><text x="100" y="91" text-anchor="middle" font-size="10">NOW PLAYING</text><text x="100" y="108" text-anchor="middle" font-size="12">pulp hum</text><circle cx="74" cy="132" r="4" fill="${ink}"/><circle cx="100" cy="132" r="4" fill="${ink}"/><circle cx="126" cy="132" r="4" fill="${ink}"/></g>`;
+  if(m==='portal')return`<g><path d="M100 62c30 16 41 44 0 83-41-39-30-67 0-83Z" fill="none" stroke="${ink}" stroke-width="5" stroke-dasharray="3 6"/>${pm(s,100,105,30)}</g>`;
+  if(m==='barcode')return`<g stroke="${ink}" stroke-width="4">${[54,64,73,87,96,110,118,132,143].map((x,i)=>`<line x1="${x}" x2="${x}" y1="68" y2="${i%2?132:122}"/>`).join('')}<text x="100" y="149" text-anchor="middle" fill="${ink}" stroke="none" font-family="monospace" font-size="10" font-weight="900">PULP-404</text></g>`;
+  if(m==='receipt')return`<g font-family="monospace" font-weight="900" fill="${ink}"><rect x="63" y="64" width="74" height="88" fill="#fff" stroke="${ink}" stroke-width="3"/><text x="100" y="84" text-anchor="middle" font-size="11">PULP</text><path d="M75 98h50M75 110h39M75 122h50M75 134h30" stroke="${ink}" stroke-width="3"/></g>`;
+  return pm(s);
+}
+function shape(s){const{kind:k,color,ink,accent}=s;const mo=motif(s);
+  if(k==='tee')return`<g><path d="M68 35c10 9 54 9 64 0l35 18-18 42-16-7v93c-20 13-66 13-86 0V88l-16 7-18-42 35-18Z" fill="${color}" stroke="#121015" stroke-linejoin="round" stroke-width="4"/><path d="M78 36c6 13 38 13 44 0" fill="none" stroke="#121015" stroke-width="4"/>${mo}</g>`;
+  if(k==='zine')return`<g><path d="M54 43h78l15 15v124H54Z" fill="${color}" stroke="#121015" stroke-linejoin="round" stroke-width="4"/><path d="M132 43v17h15" fill="${accent}" stroke="#121015" stroke-width="4"/><path d="M68 154h64M68 166h44" stroke="${ink}" stroke-width="4"/>${mo}</g>`;
+  if(k==='sticker-pack')return`<g><rect x="48" y="50" width="104" height="120" rx="8" fill="${color}" stroke="#121015" stroke-width="4"/><rect x="60" y="62" width="80" height="18" fill="${accent}" stroke="${ink}" stroke-width="3"/><circle cx="77" cy="112" r="18" fill="${accent}" stroke="${ink}" stroke-width="3"/><rect x="98" y="94" width="36" height="36" rx="6" fill="#fff" stroke="${ink}" stroke-width="3"/>${pm({...s,ink:color==='#171419'?'#121015':ink},100,120,19)}<text x="100" y="152" text-anchor="middle" fill="${ink}" font-family="monospace" font-size="11" font-weight="900">STICKERS</text></g>`;
+  if(k==='tote')return`<g><path d="M73 71c2-31 52-31 54 0" fill="none" stroke="#121015" stroke-width="8" stroke-linecap="round"/><path d="M50 74h100l-10 106H60Z" fill="${color}" stroke="#121015" stroke-linejoin="round" stroke-width="4"/>${mo}</g>`;
+  if(k==='cap')return`<g><path d="M51 112c10-42 88-42 98 0H51Z" fill="${color}" stroke="#121015" stroke-width="4"/><path d="M96 80c18 2 35 13 44 32" fill="none" stroke="#121015" stroke-width="3"/><path d="M148 112c22 0 34 8 39 18-25 8-50 3-72-18Z" fill="${accent}" stroke="#121015" stroke-width="4"/>${pm(s,100,111,28)}</g>`;
+  if(k==='cassette')return`<g><rect x="39" y="65" width="122" height="84" rx="8" fill="${color}" stroke="#121015" stroke-width="4"/><rect x="55" y="80" width="90" height="26" rx="3" fill="${accent}" stroke="#121015" stroke-width="3"/><circle cx="73" cy="124" r="15" fill="#fff" stroke="#121015" stroke-width="4"/><circle cx="127" cy="124" r="15" fill="#fff" stroke="#121015" stroke-width="4"/><circle cx="73" cy="124" r="5" fill="#121015"/><circle cx="127" cy="124" r="5" fill="#121015"/><text x="100" y="98" text-anchor="middle" fill="${ink}" font-family="monospace" font-size="12" font-weight="900">PULP HUM</text><path d="M68 147h64l8 18H60Z" fill="${ink}"/></g>`;
+  return`<rect x="60" y="60" width="80" height="100" fill="${color}" stroke="#121015" stroke-width="4"/>`;
+}
+function svg(s,w=96,h=96){return`<svg width="${w}" height="${h}" viewBox="0 0 200 220">${shape(s)}<path d="M35 185c32 11 95 11 130 0" fill="none" stroke="#121015" stroke-opacity="0.12" stroke-width="8"/></svg>`}
+
+function clock(){const n=new Date();let h=n.getHours(),m=n.getMinutes(),ap=h>=12?'PM':'AM';h=h%12||12;document.getElementById('topbar-time').textContent=`${h}:${String(m).padStart(2,'0')} ${ap}`}
+setInterval(clock,1000);clock();
+
+function vendSound(){const C=window.AudioContext||window.webkitAudioContext;if(!C)return;const c=new C(),g=c.createGain();g.gain.setValueAtTime(0.0001,c.currentTime);g.gain.exponentialRampToValueAtTime(0.15,c.currentTime+0.02);g.gain.exponentialRampToValueAtTime(0.0001,c.currentTime+0.55);g.connect(c.destination);[80,120,180].forEach((f,i)=>{const o=c.createOscillator();o.type=i===0?'sawtooth':'square';o.frequency.setValueAtTime(f,c.currentTime+i*0.08);o.frequency.exponentialRampToValueAtTime(f*0.55,c.currentTime+0.5);o.connect(g);o.start(c.currentTime+i*0.05);o.stop(c.currentTime+0.58)})}
+
+function vend(){
+  if(dropping)return;
+  let i=Math.floor(Math.random()*shirts.length);
+  if(lastIdx!==null&&shirts.length>1)while(i===lastIdx)i=Math.floor(Math.random()*shirts.length);
+  lastIdx=i; selected=shirts[i]; dropping=true; vendSound();
+  const shell=document.getElementById('machine-shell');
+  shell.style.animation='machine-shake 0.68s steps(2,end) infinite';
+  const tray=document.getElementById('tray-drop');
+  tray.innerHTML=`<div style="animation:shirt-drop .88s cubic-bezier(.2,.8,.2,1) both">${svg(selected,96,96)}</div>`;
+  renderGlass();
+  ['vend-zap','coin-slot-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=true});
+  document.querySelectorAll('.key-btn').forEach(b=>b.disabled=true);
+  setTimeout(()=>{
+    dropping=false; shell.style.animation='';
+    renderOutput(); renderGlass();
+    const r=replies[Math.floor(Math.random()*replies.length)];
+    comments=[{name:`guest_${Math.floor(Math.random()*900)+100}`,message:`${r}: ${selected.name}`},...comments].slice(0,8);
+    renderGuestbook();
+    ['vend-zap','coin-slot-btn'].forEach(id=>{const el=document.getElementById(id);if(el)el.disabled=false});
+    document.querySelectorAll('.key-btn').forEach(b=>b.disabled=false);
+  },920);
+}
+
+function renderDropGrid(){document.getElementById('drop-grid').innerHTML=shirts.slice(0,8).map((s,i)=>`<div class="drop-thumb"><div class="drop-thumb-swatch" style="background:${s.color}"></div><p>${i+1}. ${s.name}</p></div>`).join('')}
+function renderGlass(){document.getElementById('glass-grid').innerHTML=shirts.slice(0,6).map(s=>`<div class="glass-slot"><div class="slot-shelf"></div><div class="slot-spiral"></div><div class="shirt-card"><div class="shirt-slot-tag">${s.slot}</div><div class="shirt-price-tag">${s.price}</div>${svg(s,96,96)}<div class="shirt-name-row"><div class="shirt-name">${s.name}</div><div class="shirt-kind">${s.kind.replace('-',' ')}</div></div></div></div>`).join('')}
+function renderKeyGrid(){document.getElementById('key-grid').innerHTML=['A1','A2','A3','B1','B2','B3','C1','C2','??'].map(k=>`<button class="key-btn" onclick="vend()">${k}</button>`).join('')}
+function renderOutput(){
+  const b=document.getElementById('output-body');
+  if(!selected){b.innerHTML=`<div class="output-empty"><div class="output-empty-badge">TRAY EMPTY / DESTINY PENDING</div><p>Press the coin slot and let the machine choose a pulp-branded object from the weird little glass box.</p></div>`;return}
+  b.innerHTML=`<div class="output-item"><div class="output-item-graphic popping">${svg(selected,224,256)}<div class="rarity-badge">${selected.rarity}</div></div><h3 class="output-name">${selected.name}</h3><p class="output-desc">${selected.description}</p><div class="output-actions"><button class="btn-dark"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:1rem;height:1rem"><path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"/><polyline points="15 3 21 3 21 9"/><line x1="10" y1="14" x2="21" y2="3"/></svg>view item</button><button class="btn-orange" onclick="vend()"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" style="width:1rem;height:1rem"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>drop another</button></div></div>`
+}
+function renderGuestbook(){document.getElementById('guestbook-grid').innerHTML=comments.map(c=>`<article class="guest-entry"><div class="guest-name">${c.name}</div><p class="guest-msg">${c.message}</p></article>`).join('')}
+
+// Radio
+let radioPlaying=false,nowInterval=null;
+async function fetchNow(){try{const r=await fetch('https://station.illroots.com/api/nowplaying/illfm_0.1');const d=await r.json();const s=d?.now_playing?.song;if(s)document.getElementById('radio-tagline').textContent=`${s.artist||'ILLFM'} — ${s.title||''}`.slice(0,60)}catch{}}
+function setRadioUI(on){
+  document.getElementById('radio-art').classList.toggle('is-playing',on);
+  const btn=document.getElementById('radio-btn');
+  btn.className=on?'playing':'paused';
+  document.getElementById('radio-station').textContent='pulp-sm radio';
+  document.getElementById('radio-status').textContent=on?'ON AIR':'24/7 RADIO';
+  document.getElementById('radio-play').style.display=on?'none':'';
+  document.getElementById('radio-pause').style.display=on?'':'none';
+  document.getElementById('radio-label').textContent=on?'Pause':'Play Music';
+  if(on){document.getElementById('radio-tagline').textContent='tuning in...';clearInterval(nowInterval);nowInterval=setInterval(fetchNow,15000);fetchNow();}
+  else{document.getElementById('radio-tagline').textContent='ILLFM 24/7 live radio';clearInterval(nowInterval);}
+}
+async function toggleRadio(){
+  const a=document.getElementById('radio-audio');
+  if(!a.paused){a.pause();radioPlaying=false;setRadioUI(false);return}
+  try{a.volume=0.55;await a.play();radioPlaying=true;setRadioUI(true)}
+  catch{alert('Tap Play again or check your browser audio settings.')}
+}
+
+renderDropGrid();renderGlass();renderKeyGrid();renderOutput();renderGuestbook();
+</script>
+</body>
+</html>
