@@ -1,44 +1,24 @@
 (() => {
-  const config = window.PULP_CLUB || {};
-  const validStripeUrl = (value, host) => {
-    try { const url = new URL(value); return url.protocol === "https:" && url.hostname === host && !url.username && !url.password ? url.href : null; } catch { return null; }
-  };
-  const checkout = validStripeUrl(config.checkoutUrl, "buy.stripe.com");
-  if (checkout) {
-    document.getElementById("prelaunch-area").hidden = true;
-    document.getElementById("checkout-area").hidden = false;
-    document.getElementById("checkout-link").href = checkout;
-    document.getElementById("billing-note").textContent = config.billingText;
-  }
-  const portal = validStripeUrl(config.portalUrl, "billing.stripe.com");
-  if (portal) { const link = document.getElementById("portal-link"); link.href = portal; link.hidden = false; }
-  if (config.shippingText) document.getElementById("shipping-note").textContent = config.shippingText;
-  const form = document.getElementById("launch-form");
-  const status = document.getElementById("form-status");
-  if (config.waitlistEnabled) {
-    form.hidden = false;
-    document.getElementById("launch-list-faq").hidden = false;
-    document.getElementById("privacy").hidden = false;
-  }
-  if (!config.waitlistEnabled) {
-    form.hidden = true;
-    const note = document.createElement("p");
-    note.className = "fine";
-    const link = document.createElement("a"); link.href = "https://www.instagram.com/pulp.sm/"; link.textContent = "Follow @pulp.sm for the launch announcement.";
-    note.append(link); document.getElementById("prelaunch-area").append(note);
-  }
-  form.addEventListener("submit", async event => {
-    event.preventDefault();
-    if (!config.waitlistEnabled || !form.reportValidity()) return;
-    const button = form.querySelector("button");
-    button.disabled = true; status.textContent = "Adding you to the launch list…"; status.dataset.error = "false";
-    try {
-      const data = new FormData(form);
-      const response = await fetch("/api/join", {method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify({email:data.get("email"),website:data.get("website"),consent:true})});
-      const body = await response.json();
-      if (!response.ok) throw new Error(body.error || "We couldn't save your email. Please try again.");
-      status.textContent = "You're on the launch list. We'll email you when membership opens."; form.reset();
-    } catch(error) { status.dataset.error = "true"; status.textContent = error instanceof Error ? error.message : "We couldn't save your email. Please try again."; }
-    finally { button.disabled = false; }
+  const config=window.PULP_CLUB||{};
+  function stripeUrl(value,host){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname===host&&!u.username&&!u.password&&!u.pathname.includes('test_')?u.href:null}catch{return null}}
+  const checkout=stripeUrl(config.checkoutUrl,'buy.stripe.com');
+  if(checkout){document.getElementById('checkout-area').hidden=false;document.getElementById('prelaunch-area').hidden=true;document.getElementById('checkout-link').href=checkout;document.getElementById('billing-note').textContent=config.billingText||'$8 USD billed today, then monthly. Worldwide postage included. Cancel future renewals through the member portal.'}
+  const portal=stripeUrl(config.portalUrl,'billing.stripe.com');
+  if(portal){const a=document.getElementById('portal-link');a.hidden=false;a.href=portal}
+  const mail=document.getElementById('mail-object'),toggle=document.getElementById('envelope-toggle'),label=document.getElementById('envelope-label'),message=document.getElementById('envelope-message'),insertLink=mail.querySelector('.mail-insert a');
+  toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));mail.classList.toggle('is-open',open);label.textContent=open?'CLICK TO CLOSE':'CLICK TO OPEN';insertLink.tabIndex=open?0:-1;message.textContent=open?'A new envelope. Every month. The first leaves December 1.':'Open the envelope. Move things around. Stay a while.'});
+  let topLayer=5;
+  document.querySelectorAll('[data-movable]').forEach(piece=>{
+    const handle=piece.querySelector('.move-handle');let x=0,y=0,drag=null;
+    const position=()=>{piece.style.setProperty('--x',`${x}px`);piece.style.setProperty('--y',`${y}px`)};
+    const bounds=()=>({x:Math.max(20,piece.parentElement.clientWidth*.15),y:75});
+    handle.addEventListener('pointerdown',event=>{if(event.button!==0)return;drag={pointer:event.pointerId,startX:event.clientX,startY:event.clientY,x,y};handle.setPointerCapture(event.pointerId);piece.style.zIndex=String(++topLayer);event.preventDefault()});
+    handle.addEventListener('pointermove',event=>{if(!drag||event.pointerId!==drag.pointer)return;const b=bounds();x=Math.max(-b.x,Math.min(b.x,drag.x+event.clientX-drag.startX));y=Math.max(-b.y,Math.min(b.y,drag.y+event.clientY-drag.startY));position()});
+    const end=()=>{drag=null};handle.addEventListener('pointerup',end);handle.addEventListener('pointercancel',end);handle.addEventListener('lostpointercapture',end);
+    handle.addEventListener('keydown',event=>{const shifts={ArrowLeft:[-10,0],ArrowRight:[10,0],ArrowUp:[0,-10],ArrowDown:[0,10]};const delta=shifts[event.key];if(!delta)return;event.preventDefault();const b=bounds();x=Math.max(-b.x,Math.min(b.x,x+delta[0]));y=Math.max(-b.y,Math.min(b.y,y+delta[1]));position()});
+    document.getElementById('reset-collage').addEventListener('click',()=>{x=0;y=0;piece.style.zIndex='';position()});
   });
+  document.getElementById('reset-collage').addEventListener('click',()=>{mail.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');label.textContent='CLICK TO OPEN';insertLink.tabIndex=-1;message.textContent='Desk reset. Go on, make a little mess.'});
+  const audio=document.getElementById('pulp-radio'),radio=document.getElementById('radio-toggle');audio.volume=.3;
+  radio.addEventListener('click',async()=>{if(!audio.paused){audio.pause();radio.setAttribute('aria-pressed','false');radio.innerHTML='<span class="radio-dot"></span>Radio off';return}try{await audio.play();radio.setAttribute('aria-pressed','true');radio.innerHTML='<span class="radio-dot"></span>Radio on'}catch{radio.setAttribute('aria-pressed','false');radio.textContent='Radio unavailable';message.textContent='The radio could not play. You can keep exploring with sound off.'}});
 })();

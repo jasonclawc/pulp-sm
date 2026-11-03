@@ -1,9 +1,6 @@
-// Public configuration only. Never put secret keys in this file.
-window.PULP_CLUB = Object.freeze({
-  checkoutUrl: "",
-  portalUrl: "",
-  // Enable only after binding PULP_SIGNUPS in Cloudflare and deploying functions/.
-  waitlistEnabled: false,
-  shippingText: "Worldwide postage is included. The first mailing date will be announced before subscriptions open.",
-  billingText: "$8 USD billed monthly, including worldwide postage. Any applicable taxes are shown at checkout."
+// Public hosted checkout links only. Never add secret keys here.
+window.PULP_CLUB=Object.freeze({
+  checkoutUrl:'https://buy.stripe.com/00w8wO8a2gCAemJ0Jk5EY00',
+  portalUrl:'https://billing.stripe.com/p/login/00w8wO8a2gCAemJ0Jk5EY00',
+  billingText:'$8 USD billed today, then monthly. Worldwide postage included. First shipment December 1, 2026. Cancel future renewals through the member portal.'
 });
