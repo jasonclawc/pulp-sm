@@ -19,6 +19,34 @@
     document.getElementById('reset-collage').addEventListener('click',()=>{x=0;y=0;piece.style.zIndex='';position()});
   });
   document.getElementById('reset-collage').addEventListener('click',()=>{mail.classList.remove('is-open');toggle.setAttribute('aria-expanded','false');label.textContent='CLICK TO OPEN';insertLink.tabIndex=-1;message.textContent='Desk reset. Go on, make a little mess.'});
-  const audio=document.getElementById('pulp-radio'),radio=document.getElementById('radio-toggle');audio.volume=.3;
-  radio.addEventListener('click',async()=>{if(!audio.paused){audio.pause();radio.setAttribute('aria-pressed','false');radio.innerHTML='<span class="radio-dot"></span>Radio off';return}try{await audio.play();radio.setAttribute('aria-pressed','true');radio.innerHTML='<span class="radio-dot"></span>Radio on'}catch{radio.setAttribute('aria-pressed','false');radio.textContent='Radio unavailable';message.textContent='The radio could not play. You can keep exploring with sound off.'}});
+  const audio=document.getElementById('pulp-radio'),radio=document.getElementById('radio-toggle'),now=document.getElementById('radio-now'),track=document.getElementById('radio-track');
+  audio.volume=.55;
+  let nowTimer=null,pending=false;
+  function radioState(state){
+    const playing=state==='playing';
+    radio.setAttribute('aria-pressed',String(playing));
+    radio.innerHTML='<span class="radio-dot"></span>'+(state==='loading'?'Tuning in…':playing?'Radio on':state==='error'?'Retry radio':'Radio off');
+    now.hidden=state==='off';
+    clearInterval(nowTimer);nowTimer=null;
+    if(playing){fetchNow();nowTimer=setInterval(fetchNow,15000)}
+  }
+  async function fetchNow(){
+    try{
+      const response=await fetch('https://station.illroots.com/api/nowplaying/illfm_0.1',{signal:AbortSignal.timeout(7000)});
+      if(!response.ok)throw new Error('Metadata unavailable');
+      const data=await response.json(),song=data.now_playing?.song;
+      if(!audio.paused)track.textContent=song?[song.artist,song.title].filter(Boolean).join(' — ')||'ILLFM live radio':'ILLFM live radio';
+    }catch{if(!audio.paused)track.textContent='ILLFM live radio · track information unavailable'}
+  }
+  audio.addEventListener('playing',()=>radioState('playing'));
+  audio.addEventListener('pause',()=>radioState('off'));
+  audio.addEventListener('waiting',()=>{if(!audio.paused){now.hidden=false;track.textContent='Buffering the live stream…'}});
+  audio.addEventListener('error',()=>{pending=false;radioState('error');track.textContent='The live stream is unavailable. Tap Retry radio to reconnect.'});
+  radio.addEventListener('click',async()=>{
+    if(pending){audio.pause();pending=false;radioState('off');return}
+    if(!audio.paused){audio.pause();return}
+    pending=true;radioState('loading');track.textContent='Tuning in to ILLFM…';
+    try{audio.load();await audio.play()}catch{if(pending){radioState('error');track.textContent='Could not connect to ILLFM. Tap Retry radio to reconnect.'}}finally{pending=false}
+  });
+  window.addEventListener('pagehide',()=>{pending=false;clearInterval(nowTimer);audio.pause()});
 })();
