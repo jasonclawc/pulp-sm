@@ -2,11 +2,11 @@
   const config=window.PULP_CLUB||{};
   function stripeUrl(value,host){try{const u=new URL(value);return u.protocol==='https:'&&u.hostname===host&&!u.username&&!u.password&&!u.pathname.includes('test_')?u.href:null}catch{return null}}
   const checkout=stripeUrl(config.checkoutUrl,'buy.stripe.com');
-  if(checkout){document.getElementById('checkout-area').hidden=false;document.getElementById('prelaunch-area').hidden=true;document.getElementById('checkout-link').href=checkout;document.getElementById('billing-note').textContent=config.billingText||'$8 USD billed today, then monthly. Worldwide postage included. Cancel future renewals through the member portal.'}
+  if(checkout){document.getElementById('checkout-area').hidden=false;document.getElementById('prelaunch-area').hidden=true;document.getElementById('checkout-link').href=checkout;document.getElementById('billing-note').textContent=config.billingText||'$8 USD today, then monthly on your signup date. Each payment reserves one envelope. Worldwide postage included. Cancel future renewals through the member portal.'}
   const portal=stripeUrl(config.portalUrl,'billing.stripe.com');
   if(portal){const a=document.getElementById('portal-link');a.hidden=false;a.href=portal}
   const mail=document.getElementById('mail-object'),toggle=document.getElementById('envelope-toggle'),label=document.getElementById('envelope-label'),message=document.getElementById('envelope-message'),insertLink=mail.querySelector('.mail-insert a');
-  toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));mail.classList.toggle('is-open',open);label.textContent=open?'CLICK TO CLOSE':'CLICK TO OPEN';insertLink.tabIndex=open?0:-1;message.textContent=open?'December is on its way. Join January — shipping December 23.':'Open the envelope. Move things around. Stay a while.'});
+  toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));mail.classList.toggle('is-open',open);label.textContent=open?'CLICK TO CLOSE':'CLICK TO OPEN';insertLink.tabIndex=open?0:-1;message.textContent=open?'December is on its way. Join by December 22 for January — ships December 23.':'Open the envelope. Move things around. Stay a while.'});
   let topLayer=5;
   document.querySelectorAll('[data-movable]').forEach(piece=>{
     const handle=piece.querySelector('.move-handle');let x=0,y=0,drag=null;
