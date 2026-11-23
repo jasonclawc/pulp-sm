@@ -6,7 +6,7 @@
   const portal=stripeUrl(config.portalUrl,'billing.stripe.com');
   if(portal){const a=document.getElementById('portal-link');a.hidden=false;a.href=portal}
   const mail=document.getElementById('mail-object'),toggle=document.getElementById('envelope-toggle'),label=document.getElementById('envelope-label'),message=document.getElementById('envelope-message'),insertLink=mail.querySelector('.mail-insert a');
-  toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));mail.classList.toggle('is-open',open);label.textContent=open?'CLICK TO CLOSE':'CLICK TO OPEN';insertLink.tabIndex=open?0:-1;message.textContent=open?'A new envelope. Every month. The first leaves December 1.':'Open the envelope. Move things around. Stay a while.'});
+  toggle.addEventListener('click',()=>{const open=toggle.getAttribute('aria-expanded')!=='true';toggle.setAttribute('aria-expanded',String(open));mail.classList.toggle('is-open',open);label.textContent=open?'CLICK TO CLOSE':'CLICK TO OPEN';insertLink.tabIndex=open?0:-1;message.textContent=open?'December is on its way. Join January — shipping December 23.':'Open the envelope. Move things around. Stay a while.'});
   let topLayer=5;
   document.querySelectorAll('[data-movable]').forEach(piece=>{
     const handle=piece.querySelector('.move-handle');let x=0,y=0,drag=null;
